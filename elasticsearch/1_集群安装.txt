@@ -1,0 +1,170 @@
+
+
+0. 软件环境准备
+
+os: centos6/Red Hat Enterprise Linux Server release 6.8
+os user: oracle
+elasticsearch: 2.4.0
+jdk: 1.7.0_79
+
+
+1. 操作系统参数调整
+
+vi /etc/security/limits.conf
+
+oracle soft nofile 65536
+oracle hard nofile 65536
+oracle soft nproc 2048
+oracle hard nproc 2048
+oracle soft memlock unlimited
+oracle hard memlock unlimited
+
+
+vi /etc/sysctl.conf
+vm.max_map_count=262144
+vm.swappiness = 1
+
+2. JDK安装
+
+rpm -qa | grep jdk    # 查看是否有安装openjdk
+rpm -e --allmatches --nodeps <包的名字>   # 卸载JDK
+
+tar -zxvf ./jdk-8u73-linux-x64.tar.gz
+ln -s /usr/local/jdk-8u73-linux-x64 /usr/local/java
+vi /etc/profile.d/jdk.sh
+
+JAVA_HOME=/usr/local/java
+PATH=$JAVA_HOME/bin:$PATH
+CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+export JAVA_HOME
+export PATH
+export CLASSPATH
+
+chmod o+x /etc/profile.d/jdk.sh
+
+3. ES安装(在多个节点上重复以下步骤,node.name每个节点不一样)
+
+tar -zxvf ./elasticsearch-2.4.0.tar.gz
+mv ./elasticsearch-2.4.0 /home/oracle
+ln -s /home/oracle/elasticsearch-2.4.0/ /home/oracle/es
+mkdir /home/oracle/esVar
+mkdir /home/oracle/esCert
+
+vim /home/oracle/.bashrc
+export ES_HEAP_SIZE=32g
+
+vim /home/oracle/es/config/elasticsearch.yml
+cluster.name: prd-bigdata-es-cluster
+node.name: prd-bigdata-es1
+path.data: /home/oracle/esVar/data
+path.logs: /home/oracle/esVar/logs
+bootstrap.memory_lock: true
+network.host: 192.168.1.194
+http.port: 9200
+discovery.zen.ping.unicast.hosts: ["192.168.1.194", "192.168.1.195", "192.168.1.196", "192.168.1.197", "192.168.1.198", "192.168.1.199", "192.168.1.200", "192.168.1.201", "192.168.1.202", "192.168.1.203", "192.168.1.204"]
+discovery.zen.minimum_master_nodes: 6
+gateway.recover_after_nodes: 11
+gateway.expected_nodes: 11
+gateway.recover_after_time: 5m
+
+/home/oracle/es/bin/elasticsearch -d
+
+
+4. head, sql插件安装
+
+/home/oracle/es/bin/plugin install file:/home/oracle/elasticsearch-head-master.zip
+/home/oracle/es/bin/plugin install file:/home/oracle/elasticsearch-sql-2.4.0.1.zip
+
+5. search-guard安装
+
+/home/oracle/es/plugin install file:/home/oracle/search-guard-2-2.4.0.11.zip
+/home/oracle/es/plugin install file:/home/oracle/search-guard-ssl-2.4.0.20.zip
+
+# 生成证书(在固定一个节点上执行)
+unzip search-guard-ssl-master.zip
+cd /home/oracle/search-guard-ssl-master/example-pki-scripts
+
+cp gen_node_cert.sh gen_node_cert_es1.sh
+cp gen_node_cert.sh gen_node_cert_es2.sh
+cp gen_node_cert.sh gen_node_cert_es3.sh
+
+vim gen_node_cert_es1.sh   # 然后修改脚本, CN/DNS修改为主机名, ip修改为本机IP.
+NODE_NAME=prd-bigdata-es1
+
+vi ./myCert.sh
+./clean.sh
+./gen_root_ca.sh capass changeit
+./gen_node_cert_es1.sh 0 changeit capass && ./gen_node_cert_es2.sh 1 changeit capass &&  ./gen_node_cert_es3.sh 2 changeit capass
+./gen_client_node_cert.sh admin changeit capass
+
+chmod a+x ./myCert.sh
+./myCert.sh
+
+
+# 分发(客户端证书)
+cp truststore.jks ~/es/plugins/search-guard-2/sgconfig/
+cp admin-keystore.jks ~/es/plugins/search-guard-2/sgconfig/
+scp ./truststore.jks oracle@192.168.1.196:/home/oracle/es/plugins/search-guard-2/sgconfig/
+scp ./admin-keystore.jks oracle@192.168.1.196:/home/oracle/es/plugins/search-guard-2/sgconfig/
+
+# 分发(节点证书)
+cp ./truststore.jks /home/oracle/es/config/
+cp ./prd-bigdata-es1-keystore.jks /home/oracle/es/config/
+
+scp ./prd-bigdata-es2-keystore.jks oracle@192.168.1.195:/home/oracle/es/config/
+scp ./truststore.jks oracle@192.168.1.195:/home/oracle/es/config/
+
+# 添加ES search guard配置
+vim ./elasticsearch.yml
+searchguard.ssl.transport.enabled: true
+searchguard.ssl.transport.keystore_filepath: /home/oracle/es/config/prd-bigdata-es1-keystore.jks
+searchguard.ssl.transport.keystore_password: changeit
+searchguard.ssl.transport.truststore_filepath: /home/oracle/es/config/truststore.jks
+searchguard.ssl.transport.truststore_password: changeit
+searchguard.ssl.transport.enforce_hostname_verification: false
+searchguard.ssl.transport.resolve_hostname: false
+
+searchguard.ssl.http.enabled: true
+searchguard.ssl.http.keystore_filepath: /home/oracle/es/config/prd-bigdata-es1-keystore.jks
+searchguard.ssl.http.keystore_password: changeit
+searchguard.ssl.http.truststore_filepath: /home/oracle/es/config/truststore.jks
+searchguard.ssl.http.truststore_password: changeit
+searchguard.allow_all_from_loopback: true
+
+searchguard.authcz.admin_dn:
+ - CN=admin, OU=client, O=client, L=Test, C=DE
+
+# 重启ES集群
+...
+
+# 在固定一个节点上执行初始化, 以后都在这一个节点执行
+-cn: 集群名称, -cd 插件配置的路径, -ts 证书文件位置, -ks 证书文件位置
+
+vi reload.sh
+/home/oracle/es/plugins/search-guard-2/tools/sgadmin.sh \
+-cn prd-bigdata-es-cluster -h 192.168.1.194  \
+-cd /home/oracle/es/plugins/search-guard-2/sgconfig \
+-ts /home/oracle/es/plugins/search-guard-2/sgconfig/truststore.jks \
+-ks /home/oracle/es/plugins/search-guard-2/sgconfig/admin-keystore.jks \
+-kspass changeit -tspass changeit -nhnv
+
+./reload.sh
+
+# 修改密码
+/home/oracle/es/plugins/search-guard-2/tools/hash.sh  # 生成密码
+vi /home/oracle/es/plugins/search-guard-2/sgconfigsg_internal_users.yml # 修改密码
+./reload.sh  # 重新生效
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
