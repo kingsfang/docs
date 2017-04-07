@@ -40,6 +40,7 @@ export JAVA_HOME
 export PATH
 export CLASSPATH
 
+chmod 755 /etc/profile.d/jdk.sh
 chmod o+x /etc/profile.d/jdk.sh
 
 3. ES安装(在多个节点上重复以下步骤,node.name每个节点不一样)

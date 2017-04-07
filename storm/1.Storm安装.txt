@@ -1,0 +1,82 @@
+
+
+1. 安装JDK
+
+rpm -qa | grep jdk    # 查看是否有安装openjdk
+rpm -e --allmatches --nodeps <包的名字>   # 卸载JDK
+
+tar -zxvf ./jdk-8u73-linux-x64.tar.gz
+ln -s /usr/local/jdk-8u73-linux-x64 /usr/local/java
+vi /etc/profile.d/jdk.sh
+
+JAVA_HOME=/usr/local/java
+PATH=$JAVA_HOME/bin:$PATH
+CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+export JAVA_HOME
+export PATH
+export CLASSPATH
+
+chmod 755 /etc/profile.d/jdk.sh
+chmod o+x /etc/profile.d/jdk.sh
+
+2. 安装ZK
+
+tar -zxvf ./zookeeper-3.4.9.tar.gz
+mkdir /home/oracle/zkVar
+ln -s ./zookeeper-3.4.9/ ./zk
+
+cp /home/oracle/zk/conf/zoo_sample.cfg /home/oracle/zk/conf/zoo.cfg
+vi /home/oracle/zk/conf/zoo.cfg
+dataDir=/home/oracle/zkVar/zookeeper
+
+# 启动
+/home/oracle/zk/bin/zkServer.sh start
+
+3. 安装Storm nimbus
+
+mkdir /home/oracle/esCert
+
+tar -zxvf ./apache-storm-1.0.2.tar.gz
+ln -s ./apache-storm-1.0.2/ ./storm
+mkdir /home/oracle/stormVar
+
+vi /home/oracle/storm/conf/storm.yaml
+storm.zookeeper.servers:
+        - "192.168.1.171"
+
+storm.zookeeper.port: 2181
+storm.zookeeper.root: "/storm"
+nimbus.seeds: ["B2B-Storm-test1"]
+
+storm.local.dir: "/home/oracle/stormVar"
+
+supervisor.slots.ports:
+      - 6700
+      - 6701
+      - 6702
+      - 6703
+
+worker.childopts: "-Xmx4000m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/home/oracle/stormVar/logs/dump"
+
+
+vi /etc/hosts
+192.168.1.197 B2B-bigdata-storm1
+192.168.1.198 B2B-bigdata-storm2
+192.168.1.199 B2B-bigdata-storm3
+
+# 分发 storm.yaml 到其他节点
+
+# 启动nimbus
+nohup /home/oracle/storm/bin/storm nimbus >> /tmp/nimbus.log  2>&1 & disown
+
+# 启动 ui
+nohup /home/oracle/storm/bin/storm ui >> /tmp/ui.log  2>&1 & disown
+
+# 启动 supervisor
+nohup /home/oracle/storm/bin/storm supervisor >> /tmp/supervisor.log  2>&1 & disown
+
+
+
+
+
+
