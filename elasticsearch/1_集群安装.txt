@@ -53,6 +53,8 @@ mkdir /home/oracle/esCert
 vim /home/oracle/.bashrc
 export ES_HEAP_SIZE=32g
 
+source /home/oracle/.bashrc
+
 vim /home/oracle/es/config/elasticsearch.yml
 cluster.name: prd-bigdata-es-cluster
 node.name: prd-bigdata-es1
