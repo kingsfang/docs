@@ -1,0 +1,18 @@
+
+##################### 手动管理 #######################
+
+1. 启动ES
+
+#!/bin/bash
+/home/oracle/es/bin elasticsearch -d
+
+
+2. 关闭ES
+
+#!/bin/bash
+kill -9 `jps -v | grep Elasticsearch | awk '{print $1}'`
+
+
+##################### supervisor管理 #######################
+
+# TODO
