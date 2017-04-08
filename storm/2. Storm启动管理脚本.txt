@@ -1,0 +1,34 @@
+
+1. 启动关闭 ZK
+
+# start zk
+/home/oracle/zk/bin/zkServer.sh start
+
+# stop zk
+kill -9 `jps -v | grep zookeeper | awk '{print $1}'`
+
+2. 启动关闭 nimbus
+
+# start nimbus
+nohup /home/oracle/storm/bin/storm nimbus >> /tmp/nimbus.log  2>&1 & disown
+
+# stop nimbus
+kill -9 `jps -v | grep nimbus | awk '{print $1}'`
+
+
+2. 启动关闭 ui
+
+# start ui
+nohup /home/oracle/storm/bin/storm ui >> /tmp/ui.log  2>&1 & disown
+
+# stop ui
+kill -9 `jps -v | grep ui | awk '{print $1}'`
+
+3. 启动关闭 supervisor
+
+# start supervisor
+nohup /home/oracle/storm/bin/storm supervisor >> /tmp/supervisor.log  2>&1 & disown
+
+# stop supervisor
+kill -9 `jps -v | grep supervisor | awk '{print $1}'`
+
