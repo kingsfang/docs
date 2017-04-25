@@ -1,0 +1,7 @@
+
+1. Mapper scan 注解不支持通配
+# 无效
+@MapperScan({"com.ecommerce.*.mapper"})
+
+# 有效
+@MapperScan({"com.ecommerce.framework.asynrpc.mapper", "com.ecommerce.userprofile.mapper"})

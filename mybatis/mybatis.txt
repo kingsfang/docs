@@ -1,0 +1,5 @@
+
+1. 获取insert后自动生成的ID
+
+2. mybaits批量插入
+
