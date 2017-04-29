@@ -1,0 +1,91 @@
+
+1. Client side
+
+<dependency>
+    <groupId>com.baidu.disconf</groupId>
+    <artifactId>disconf-client</artifactId>
+    <version>2.6.36</version>
+</dependency>
+
+
+
+2. disconf console web（管理控制台安装）
+
+# 安装软件前提
+mysql, tomcat, nginx, zk, redis
+
+# 下载源码并且mvn install
+git clone https://github.com/knightliao/disconf.git
+
+a. 初始化数据库
+
+disconf/disconf-web/sql
+0-init_table.sql
+1-init_data.sql
+201512/20151225.sql
+20160701/20160701.sql
+
+b. 构建war包和配置文件
+
+mkdir /usr/local/disconf/online-resources
+cp -R disconf/disconf-web/profile/rd /usr/local/disconf/online-resources
+# 修改配置文件 /usr/local/disconf/online-resources
+application.properties
+jdbc-mysql.properties
+log4j.properties
+logback.xml
+redis-config.properties
+zoo.properties
+
+# 设置配置文件路径和console war路径，然后执行deploy部署
+ONLINE_CONFIG_PATH=/usr/local/disconf/online-resources
+WAR_ROOT_PATH=/usr/local/disconf-tomcat/webapps
+export ONLINE_CONFIG_PATH
+export WAR_ROOT_PATH
+cd disconf-web
+sh deploy/deploy.sh
+
+c. tomcat 
+vi disconf-tomcat/conf/server.xml
+
+# 修改端口8015
+# 修改context root为空
+<Host name="localhost"  appBase="webapps" unpackWARs="true" autoDeploy="true">
+   <Context path="" debug="0" docBase="disconf-web" reloadable="true"/>
+</Host>
+
+
+d. nigx
+
+upstream disconf {
+    server 127.0.0.1:8015;
+}
+
+server {
+
+    listen   81;
+    server_name disconf.com;
+    access_log /usr/local/var/logs/disconf/access.log;
+    error_log /usr/local/var/logs/disconf/error.log;
+
+    location / {
+        root /usr/local/disconf-tomcat/webapps/html;
+        if ($query_string) {
+            expires max;
+        }
+    }
+
+    location ~ ^/(api|export) {
+        proxy_pass_header Server;
+        proxy_set_header Host $http_host;
+        proxy_redirect off;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Scheme $scheme;
+        proxy_pass http://disconf;
+    }
+}
+
+e. 访问 localhost:81
+admin/admin
+
+

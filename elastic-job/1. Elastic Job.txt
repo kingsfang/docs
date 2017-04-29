@@ -1,0 +1,9 @@
+
+1. 安装console
+
+git clone https://github.com/dangdangdotcom/elastic-job.git
+unzip elastic-job-master.zip
+cd elastic-job-master
+mvn install
+
+elastic-job-master/elastic-job-lite/elastic-job-lite-console/target/elastic-job-lite-console-2.1.1.tar.gz
